@@ -2,7 +2,7 @@
 <html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
 <title>PortWatch</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
 <style>
@@ -27,7 +27,7 @@
   --glass: rgba(248, 250, 252, 0.92);
 }
 
-html,body{min-height:100vh;background:var(--bg);color:var(--t1);font-family:'JetBrains Mono',monospace;transition:background 0.4s, color 0.4s;}
+html,body{min-height:100vh;background:var(--bg);color:var(--t1);font-family:'JetBrains Mono',monospace;transition:background 0.4s, color 0.4s; overflow-x: hidden;}
 body{
   background-image:
     radial-gradient(ellipse at 10% 50%, color-mix(in srgb, var(--g) 5%, transparent) 0%, transparent 50%),
@@ -176,12 +176,13 @@ button:focus,input:focus{outline:none}
 .hint-tag:hover{border-color:var(--b3);color:var(--t2);background:var(--b1)}
 
 /* ── TABS ── */
-#tabs{display:flex;border-bottom:1px solid var(--b1);margin-bottom:24px;gap:4px}
+#tabs{display:flex;border-bottom:1px solid var(--b1);margin-bottom:24px;gap:4px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;}
+#tabs::-webkit-scrollbar { display: none; }
 .tbtn{
   background:none;border:none;border-bottom:2px solid transparent;
   color:var(--t3);font-size:13px;padding:12px 24px;margin-bottom:-1px;
   text-transform:uppercase;letter-spacing:1.5px;font-weight:600;
-  display:flex;align-items:center;gap:8px;transition:all .2s;
+  display:flex;align-items:center;gap:8px;transition:all .2s; white-space: nowrap; flex-shrink: 0;
 }
 .tbtn.active{color:var(--g);border-bottom-color:var(--g)}
 .tbtn:hover:not(.active){color:var(--t2)}
@@ -226,7 +227,7 @@ button:focus,input:focus{outline:none}
 .mini-tgt:hover { border-color: var(--b3); background: var(--bg2); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
 .mt-head { display: flex; justify-content: space-between; align-items: center; }
 .mt-host { font-size: 13px; font-weight: 700; color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 85%; }
-.mt-dot { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 6px currentColor; }
+.mt-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 6px currentColor; }
 .mt-stats { font-size: 11px; color: var(--t3); display: flex; gap: 12px; }
 .mt-stat { display: flex; align-items: center; gap: 4px; }
 
@@ -254,8 +255,9 @@ button:focus,input:focus{outline:none}
 .card:not(.collapsed) .card-head { border-bottom-color: var(--b1); }
 .sdot{ width:12px;height:12px;border-radius:50%;flex-shrink:0; transition:background .3s,box-shadow .3s; }
 .sdot.pulse{animation:sdotPulse 1.5s ease-in-out infinite}
-.c-host{font-size:16px;font-weight:700;color:var(--t1);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.c-ip{font-size:12px;color:var(--t3);font-weight:400;background:var(--b1);padding:3px 8px;border-radius:4px}
+.card-info { overflow: hidden; }
+.c-host{font-size:16px;font-weight:700;color:var(--t1);display:flex;align-items:center;gap:10px;flex-wrap:wrap; word-break: break-all;}
+.c-ip{font-size:12px;color:var(--t3);font-weight:400;background:var(--b1);padding:3px 8px;border-radius:4px; word-break: break-all;}
 .scan-tag{font-size:10px;color:var(--y);letter-spacing:2px;animation:blink 1s step-end infinite}
 .c-meta{font-size:12px;color:var(--t3);margin-top:6px;display:flex;align-items:center;gap:14px}
 .c-meta-item{display:flex;align-items:center;gap:6px}
@@ -372,9 +374,68 @@ button:focus,input:focus{outline:none}
 @keyframes pulseDiff { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 transparent; } 50% { transform: scale(1.05); box-shadow: 0 0 10px color-mix(in srgb, var(--y) 40%, transparent); } }
 @keyframes sdotPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.8)}}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes urgentPulse{0%,100%{opacity:1}50%{opacity:.5}}
 @keyframes scanBounce{0%,100%{transform:translateY(0);opacity:.3}50%{transform:translateY(-6px);opacity:1}}
 @keyframes slideIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ── MOBILE RESPONSIVENESS ── */
+@media (max-width: 850px) {
+  /* Topbar stacking */
+  #topbar { display: flex; flex-direction: column; height: auto; padding: 20px; gap: 16px; align-items: flex-start; }
+  .logo { width: 100%; justify-content: center; }
+  #interval-bar { flex-wrap: wrap; width: 100%; }
+  .nav-right { flex-wrap: wrap; justify-content: center; width: 100%; gap: 12px; }
+  .nav-divider { display: none; }
+  
+  /* Dash grid adjustment */
+  .dash-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  
+  /* Schedule & Add Block */
+  #schedule-panel { flex-direction: column; text-align: center; gap: 16px; padding: 20px; }
+  .global-countdown { border-left: none; border-top: 1px solid var(--b1); padding: 16px 0 0 0; width: 100%; display: flex; flex-direction: column; align-items: center; }
+  .add-row { flex-direction: column; }
+  #add-btn { width: 100%; padding: 16px; }
+  
+  /* Card Redesign for Mobile */
+  .card-head { display: flex; flex-wrap: wrap; padding: 16px; position: relative; gap: 12px; }
+  .card-info { width: calc(100% - 40px); margin-bottom: 8px; }
+  .c-host { font-size: 15px; }
+  .c-meta { flex-wrap: wrap; gap: 8px; }
+  .chev { position: absolute; right: 16px; top: 20px; padding: 10px; margin: -10px; /* larger hit area */ } 
+  .card-timer, .score-wrap { flex: 1; align-items: flex-start; transform: scale(0.9); transform-origin: left center; }
+  .card-timer-lbl, .score-lbl { font-size: 10px; }
+  .card-actions { width: 100%; justify-content: space-between; padding-top: 14px; border-top: 1px solid var(--b1); margin-top: 8px; flex-wrap: wrap; gap: 8px; }
+  .cact { flex: 1; text-align: center; justify-content: center; display: flex; padding: 10px; }
+  
+  /* Card Body Layout */
+  .scan-history { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .sh-next { margin-left: 0; width: 100%; justify-content: space-between; }
+  .sh-dots { flex-wrap: wrap; width: 100%; }
+  
+  /* Ports Wrap properly */
+  .port-row { flex-wrap: wrap; gap: 8px; position: relative; }
+  .p-lbl { width: 100%; margin-top: 4px; padding-left: 20px; order: 5; }
+  .p-fp-btn { position: absolute; right: 14px; top: 10px; }
+  .fp-reason-tag { order: 6; margin-left: 20px; margin-top: 4px; width: fit-content; }
+  
+  /* Vulns & Timelines */
+  .cve-row { flex-wrap: wrap; gap: 6px; }
+  .cve-desc { width: 100%; padding-left: 10px; }
+  .tl-row { flex-wrap: wrap; gap: 4px; }
+  .tl-detail { width: 100%; padding-left: 97px; margin-top: -6px; }
+  
+  #main { padding: 20px 12px; }
+}
+
+@media (max-width: 480px) {
+  .dash-grid { grid-template-columns: 1fr; }
+  .dash-val { font-size: 36px; }
+  .stat-chip { min-width: auto; flex: 1 1 40%; }
+  .login-box { padding: 30px 20px; width: 90%; }
+  .mini-grid { grid-template-columns: 1fr; }
+}
 </style>
 </head>
 <body>
@@ -404,7 +465,7 @@ button:focus,input:focus{outline:none}
 
   <div class="nav-right">
     <div class="nav-divider"></div>
-    <button id="theme-btn" onclick="toggleTheme()" title="Toggle Theme">🌓</button>
+    <button id="theme-btn" onclick="toggleTheme()" title="Toggle Theme">🌓 Theme</button>
     <button id="notif-btn" onclick="toggleNotif()">🔔 Enable Alerts</button>
     <button id="logout-btn" onclick="doLogout()">🚪 Logout</button>
   </div>
@@ -580,7 +641,7 @@ function scoreInfo(s){
 // ═══════════════════════════════════════════════════ STATE ═══
 let targets=[], alerts=[], intervalMs=300000, notifOk=false;
 let scanTimers={}, scanning={};
-let ackOpenCount=0; // Tracks acknowledged open ports for dashboard diff
+let ackOpenCount=0; 
 
 // ═══════════════════════════════════════════════ IP PARSING ═══
 function ipToInt(ip) { return ip.split('.').reduce((int, oct) => (int << 8) + parseInt(oct, 10), 0) >>> 0; }
@@ -1101,9 +1162,6 @@ function buildCard(t){
       bodyInner.appendChild(vbox);
     }
 
-    const aiWrap=mk('div');aiWrap.id='ai-'+t.id;
-    drawAI(aiWrap,t,activePorts);bodyInner.appendChild(aiWrap);
-
   } else if(!t.error&&!t.scanning){
     bodyInner.innerHTML+='<div class="scan-ph"><div style="color:var(--t2);font-size:14px;font-weight:600;">No public data found for this host in Shodan InternetDB.</div></div>';
   }
@@ -1151,53 +1209,6 @@ function toggleTheme() {
   const currentTheme = html.getAttribute('data-theme');
   const newTheme = currentTheme === 'light' ? 'dark' : 'light';
   html.setAttribute('data-theme', newTheme);
-}
-
-// ═══════════════════════════════════════════════ AI PANEL ═══
-function drawAI(wrap,t,activePorts){
-  wrap.innerHTML='';
-  if(!t.aiResult&&!t.aiLoading){
-    if(!activePorts.length&&!t.vulns.length) return;
-    const btn=mk('button','ai-trigger');
-    btn.innerHTML='<span class="ai-icon">✦</span><span>AI Risk Analysis — Get expert assessment of this attack surface</span>';
-    btn.onclick=()=>runAI(t, activePorts);wrap.appendChild(btn);
-  } else if(t.aiLoading){
-    const d=mk('div','ai-loading');
-    d.innerHTML='<div class="ai-spinner"></div><span>Analysing attack surface with Claude AI…</span>';
-    wrap.appendChild(d);
-  } else {
-    const r=t.aiResult;
-    const panel=mk('div','ai-result');
-    panel.innerHTML=
-      '<div class="ai-result-head">'+
-      '<div class="ai-result-title"><span>✦</span> AI Security Analysis</div>'+
-      '<button class="ai-redo" onclick="resetAI(\''+t.id+'\')">↺ Re-run</button>'+
-      '</div>'+
-      '<div class="ai-summary">'+esc(r.summary||'')+'</div>'+
-      aiSec('Critical Findings','var(--r)','⚠',r.critical_findings)+
-      aiSec('Recommendations','var(--g)','✓',r.recommendations)+
-      aiSec('Attack Vectors','var(--y)','⚡',r.attack_vectors);
-    wrap.appendChild(panel);
-  }
-}
-function aiSec(title,color,icon,items){
-  if(!items||!items.length) return '';
-  return `<div class="ai-section"><div class="ai-sec-title" style="color:${color}">${title}</div>`+
-    items.map(i=>`<div class="ai-sec-item" style="color:color-mix(in srgb, ${color} 80%, transparent)">${icon} ${esc(i)}</div>`).join('')+'</div>';
-}
-async function runAI(t, activePorts){
-  t.aiLoading=true;t.aiResult=null;
-  const w=document.getElementById('ai-'+t.id);if(w)drawAI(w,t,activePorts);
-  try{t.aiResult=await aiAnalyze(t, activePorts);}
-  catch(e){t.aiResult={summary:'Analysis failed: '+e.message,critical_findings:[],recommendations:[],attack_vectors:[]};}
-  t.aiLoading=false;
-  const w2=document.getElementById('ai-'+t.id);if(w2)drawAI(w2,t,activePorts);
-}
-function resetAI(id){
-  const t=targets.find(x=>x.id===id);if(!t)return;
-  t.aiResult=null;t.aiLoading=false;
-  const activePorts = (t.ports||[]).filter(p => !(t.falsePositives && t.falsePositives[p]));
-  const w=document.getElementById('ai-'+t.id);if(w)drawAI(w,t,activePorts);
 }
 
 // ══════════════════════════════════════════════ ALERTS ═══
