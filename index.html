@@ -503,7 +503,7 @@ button:focus,input:focus{outline:none}
       <span class="hint-tag" onclick="setHost('scanme.nmap.org')">scanme.nmap.org</span>
       <span class="hint-tag" onclick="setHost('github.com')">github.com</span>
       <span class="hint-tag" onclick="setHost('1.1.1.1/30')">1.1.1.1/30</span>
-      <span style="color:var(--t3);margin-left:4px">· Data: Shodan InternetDB · DNS: Google DoH</span>
+      <span style="color:var(--t3);margin-left:4px">· Data: Shodan InternetDB · DNS: Google / Cloudflare</span>
     </div>
   </div>
 
@@ -671,22 +671,32 @@ function parseInputToIPs(input) {
 // ═════════════════════════════════════════════════ API CALLS ═══
 async function resolveHost(host){
   if(/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return host;
-  const r=await fetch('https://dns.google/resolve?name='+encodeURIComponent(host)+'&type=A');
-  const d=await r.json();
-  const a=(d.Answer||[]).find(x=>x.type===1);
-  if(!a) throw new Error('Cannot resolve "'+host+'" to an IP');
-  return a.data;
+  try {
+    const r=await fetch('https://dns.google/resolve?name='+encodeURIComponent(host)+'&type=A');
+    const d=await r.json();
+    const a=(d.Answer||[]).find(x=>x.type===1);
+    if(a) return a.data;
+  } catch(e) {
+    console.warn("Google DNS failed, trying Cloudflare DoH...");
+  }
+  // Cloudflare Fallback
+  const r2=await fetch('https://cloudflare-dns.com/dns-query?name='+encodeURIComponent(host)+'&type=A', {headers: {'accept': 'application/dns-json'}});
+  const d2=await r2.json();
+  const a2=(d2.Answer||[]).find(x=>x.type===1);
+  if(!a2) throw new Error('Cannot resolve "'+host+'" to an IP');
+  return a2.data;
 }
 
 async function fetchShodan(ip){
   const r=await fetch('https://internetdb.shodan.io/'+ip);
   if(r.status===404) return {ports:[],vulns:[],hostnames:[],cpes:[],tags:[]};
+  if(r.status===429) throw new Error('Rate Limited (Wait a moment)');
   if(!r.ok) throw new Error('Shodan API error: '+r.status);
   return r.json();
 }
 
 async function aiAnalyze(t, activePorts){
-  // Proxy needed in live environment
+  // Note: For a live frontend-only app, you'd need a proxy to hide the Anthropic API key.
 }
 
 // ════════════════════════════════════════════════════ SCAN ═══
@@ -809,7 +819,9 @@ function addTarget() {
     };
     targets.push(t);
     renderCard(t);
-    setTimeout(() => scanTarget(id), 100 + (index * 250));
+    
+    // Stagger scans heavily to prevent 429 Rate Limits from Shodan when scanning ranges
+    setTimeout(() => scanTarget(id), 100 + (index * 500));
   });
 
   updateStats();
@@ -821,10 +833,7 @@ function removeTarget(id){
   targets=targets.filter(t=>t.id!==id);
   
   const el = document.getElementById('card-'+id);
-  if(el) {
-      if (document.startViewTransition) document.startViewTransition(() => el.remove());
-      else el.remove();
-  }
+  if(el) el.remove(); // Safely removed ViewTransitions
   
   if(!targets.length) document.getElementById('monitor-empty').style.display='';
   updateStats();
@@ -966,9 +975,10 @@ function renderCard(t){
   const ex=document.getElementById('card-'+t.id);
   const el=buildCard(t);
   if(ex) {
-      if (document.startViewTransition) { document.startViewTransition(() => { ex.replaceWith(el); }); } 
-      else { ex.replaceWith(el); }
-  } else { document.getElementById('cards').appendChild(el); }
+      ex.replaceWith(el); // Safely replaced without ViewTransitions API
+  } else { 
+      document.getElementById('cards').appendChild(el); 
+  }
 }
 
 function buildCard(t){
@@ -1162,6 +1172,9 @@ function buildCard(t){
       bodyInner.appendChild(vbox);
     }
 
+    const aiWrap=mk('div');aiWrap.id='ai-'+t.id;
+    drawAI(aiWrap,t,activePorts);bodyInner.appendChild(aiWrap);
+
   } else if(!t.error&&!t.scanning){
     bodyInner.innerHTML+='<div class="scan-ph"><div style="color:var(--t2);font-size:14px;font-weight:600;">No public data found for this host in Shodan InternetDB.</div></div>';
   }
@@ -1211,12 +1224,62 @@ function toggleTheme() {
   html.setAttribute('data-theme', newTheme);
 }
 
+// ═══════════════════════════════════════════════ AI PANEL ═══
+function drawAI(wrap,t,activePorts){
+  wrap.innerHTML='';
+  if(!t.aiResult&&!t.aiLoading){
+    if(!activePorts.length&&!t.vulns.length) return;
+    const btn=mk('button','ai-trigger');
+    btn.innerHTML='<span class="ai-icon">✦</span><span>AI Risk Analysis — Get expert assessment of this attack surface</span>';
+    btn.onclick=()=>runAI(t, activePorts);wrap.appendChild(btn);
+  } else if(t.aiLoading){
+    const d=mk('div','ai-loading');
+    d.innerHTML='<div class="ai-spinner"></div><span>Analysing attack surface with Claude AI…</span>';
+    wrap.appendChild(d);
+  } else {
+    const r=t.aiResult;
+    const panel=mk('div','ai-result');
+    panel.innerHTML=
+      '<div class="ai-result-head">'+
+      '<div class="ai-result-title"><span>✦</span> AI Security Analysis</div>'+
+      '<button class="ai-redo" onclick="resetAI(\''+t.id+'\')">↺ Re-run</button>'+
+      '</div>'+
+      '<div class="ai-summary">'+esc(r.summary||'')+'</div>'+
+      aiSec('Critical Findings','var(--r)','⚠',r.critical_findings)+
+      aiSec('Recommendations','var(--g)','✓',r.recommendations)+
+      aiSec('Attack Vectors','var(--y)','⚡',r.attack_vectors);
+    wrap.appendChild(panel);
+  }
+}
+function aiSec(title,color,icon,items){
+  if(!items||!items.length) return '';
+  return `<div class="ai-section"><div class="ai-sec-title" style="color:${color}">${title}</div>`+
+    items.map(i=>`<div class="ai-sec-item" style="color:color-mix(in srgb, ${color} 80%, transparent)">${icon} ${esc(i)}</div>`).join('')+'</div>';
+}
+async function runAI(t, activePorts){
+  t.aiLoading=true;t.aiResult=null;
+  const w=document.getElementById('ai-'+t.id);if(w)drawAI(w,t,activePorts);
+  try{t.aiResult=await aiAnalyze(t, activePorts);}
+  catch(e){t.aiResult={summary:'Analysis failed: '+e.message,critical_findings:[],recommendations:[],attack_vectors:[]};}
+  t.aiLoading=false;
+  const w2=document.getElementById('ai-'+t.id);if(w2)drawAI(w2,t,activePorts);
+}
+function resetAI(id){
+  const t=targets.find(x=>x.id===id);if(!t)return;
+  t.aiResult=null;t.aiLoading=false;
+  const activePorts = (t.ports||[]).filter(p => !(t.falsePositives && t.falsePositives[p]));
+  const w=document.getElementById('ai-'+t.id);if(w)drawAI(w,t,activePorts);
+}
+
 // ══════════════════════════════════════════════ ALERTS ═══
 function pushAlert(a){
   a.id='al-'+Date.now()+'-'+a.port;
   alerts.unshift(a);if(alerts.length>60)alerts.length=60;
-  if(notifOk&&a.type==='opened')
-    new Notification('⚠️ New Open Port',{body:a.host+': Port '+a.port+' ('+a.service+') is now OPEN'});
+  if(notifOk&&a.type==='opened') {
+    if(typeof window !== 'undefined' && window.Notification) {
+      new window.Notification('⚠️ New Open Port',{body:a.host+': Port '+a.port+' ('+a.service+') is now OPEN'});
+    }
+  }
   renderAlerts();updateStats();
 }
 function renderAlerts(){
@@ -1253,7 +1316,11 @@ function updateScheduleDesc(){
 }
 
 async function toggleNotif(){
-  if(!notifOk){const p=await Notification.requestPermission();notifOk=p==='granted';}
+  if(typeof window === 'undefined' || !window.Notification){
+    alert('Push notifications are not supported in this browser context.');
+    return;
+  }
+  if(!notifOk){const p=await window.Notification.requestPermission();notifOk=p==='granted';}
   const b=document.getElementById('notif-btn');
   if(notifOk){b.classList.add('on');b.textContent='🔔 Alerts On';}
   else{b.classList.remove('on');b.textContent='🔔 Enable Alerts';}
@@ -1291,10 +1358,11 @@ function esc(s){const d=document.createElement('div');d.textContent=s||'';return
     };
     bar.appendChild(b);
   });
-  if(Notification?.permission==='granted'){
+  
+  if(typeof window !== 'undefined' && window.Notification && window.Notification.permission==='granted'){
     notifOk=true;
     const b=document.getElementById('notif-btn');
-    b.classList.add('on');b.textContent='🔔 Alerts On';
+    if(b) { b.classList.add('on'); b.textContent='🔔 Alerts On'; }
   }
   updateScheduleDesc();
 })();
